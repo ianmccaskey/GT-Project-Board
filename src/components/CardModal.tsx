@@ -17,7 +17,7 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 const TAG_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
 
 export function CardModal({ card, onClose }: { card: Card; onClose: () => void }) {
-  const { updateCard, tags, columns, createTag, deleteTag, addComment } = useApp();
+  const { updateCard, deleteCard, tags, columns, createTag, addComment } = useApp();
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [priority, setPriority] = useState<Priority>(card.priority);
@@ -193,7 +193,7 @@ export function CardModal({ card, onClose }: { card: Card; onClose: () => void }
 
         {/* Footer */}
         <div className="flex items-center justify-between p-5 border-t border-gray-700">
-          <button onClick={() => { updateCard({ id: card.id, title: card.title }); onClose(); }} className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1">
+          <button onClick={() => { deleteCard(card.id); onClose(); }} className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1">
             <Trash2 size={14} /> Delete Card
           </button>
           <div className="flex gap-2">
