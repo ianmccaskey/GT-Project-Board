@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isPast } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isPast } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { CardModal } from './CardModal';
@@ -54,7 +54,7 @@ export function CalendarView() {
 
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1">
-        {days.map((day, i) => {
+        {days.map((day) => {
           const key = format(day, 'yyyy-MM-dd');
           const dayCards = cardsByDay[key] || [];
           const inMonth = isSameMonth(day, currentMonth);
