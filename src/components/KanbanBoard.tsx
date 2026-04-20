@@ -11,7 +11,6 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
-  DragOverEvent,
 } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useApp } from '@/context/AppContext';
@@ -23,7 +22,7 @@ import { ListView } from './ListView';
 import { CalendarView } from './CalendarView';
 
 export function KanbanBoard() {
-  const { columns, cards, currentBoard, viewMode, setViewMode, createColumn, reorderColumns, moveCard, reorderCards } = useApp();
+  const { columns, cards, currentBoard, viewMode, setViewMode, createColumn, moveCard } = useApp();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
 
   const sensors = useSensors(
