@@ -19,6 +19,12 @@ create table columns (
   created_at timestamptz default now()
 );
 
+-- Index for fetching columns in order
+create index idx_columns_board_position on columns(board_id, position);
+
+-- Index for fetching all columns of a board
+create index idx_columns_board_id on columns(board_id);
+
 -- Tags
 create table tags (
   id uuid primary key default uuid_generate_v4(),
@@ -26,6 +32,9 @@ create table tags (
   name text not null,
   color text not null default '#6366f1'
 );
+
+-- Index for fetching tags by board
+create index idx_tags_board_id on tags(board_id);
 
 -- Cards
 create table cards (
@@ -40,12 +49,24 @@ create table cards (
   created_at timestamptz default now()
 );
 
+-- Index for fetching cards by board and column in order
+create index idx_cards_board_column_position on cards(board_id, column_id, position);
+
+-- Index for reordering cards within a column
+create index idx_cards_column_position on cards(column_id, position);
+
 -- Card Tags (junction table)
 create table card_tags (
   card_id uuid references cards(id) on delete cascade,
   tag_id uuid references tags(id) on delete cascade,
   primary key (card_id, tag_id)
 );
+
+-- Index for fetching tags of a card
+create index idx_card_tags_card_id on card_tags(card_id);
+
+-- Index for fetching cards by tag
+create index idx_card_tags_tag_id on card_tags(tag_id);
 
 -- Comments
 create table comments (
@@ -54,6 +75,9 @@ create table comments (
   content text not null,
   created_at timestamptz default now()
 );
+
+-- Index for fetching comments of a card
+create index idx_comments_card_id on comments(card_id);
 
 -- Row Level Security (disabled for now - no auth)
 alter table boards enable row level security;
