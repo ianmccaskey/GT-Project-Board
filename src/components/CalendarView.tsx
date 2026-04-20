@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isPast } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isToday, isPast } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { CardModal } from './CardModal';
@@ -13,13 +13,12 @@ export function CalendarView() {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const days = useMemo(() => {
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
-    const allDays = eachDayOfInterval({ start, end });
-    // Pad start with days from previous month
-    const startDay = start.getDay(); // 0 = Sunday
-    const prevDays = Array.from({ length: startDay }, (_, i) => new Date(start.getTime() - (startDay - i) * 86400000));
-    return [...prevDays, ...allDays];
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    // Pad to start of week (Sunday) and end of week (Saturday)
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [currentMonth]);
 
   const cardsByDay = useMemo(() => {

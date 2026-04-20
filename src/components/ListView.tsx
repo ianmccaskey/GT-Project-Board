@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { format, isPast, isToday } from 'date-fns';
+import { format, isPast, isToday, startOfDay, endOfWeek } from 'date-fns';
 import { useApp } from '@/context/AppContext';
 import { CardModal } from './CardModal';
 import { Search, Calendar, ArrowUpDown } from 'lucide-react';
@@ -27,8 +27,12 @@ export function ListView() {
     if (filterDue === 'overdue') result = result.filter(c => c.due_date && isPast(new Date(c.due_date)) && !isToday(new Date(c.due_date)));
     if (filterDue === 'today') result = result.filter(c => c.due_date && isToday(new Date(c.due_date)));
     if (filterDue === 'week') {
-      const weekFromNow = new Date(); weekFromNow.setDate(weekFromNow.getDate() + 7);
-      result = result.filter(c => c.due_date && new Date(c.due_date) <= weekFromNow);
+      // "This Week" = current calendar week (Sunday to Saturday), not next 7 days
+      // This aligns with calendar week boundaries for consistent UX
+      const today = startOfDay(new Date());
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+      result = result.filter(c => c.due_date && new Date(c.due_date) >= weekStart && new Date(c.due_date) <= weekEnd);
     }
 
     return [...result].sort((a, b) => {
