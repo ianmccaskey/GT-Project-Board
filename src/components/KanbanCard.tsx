@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { format, isPast, isToday } from 'date-fns';
 import { useApp } from '@/context/AppContext';
-import { Calendar, MessageSquare, Tag, Trash2, Edit2, X, Plus } from 'lucide-react';
+import { Calendar, MessageSquare, Trash2 } from 'lucide-react';
 import type { Card, Priority } from '@/types';
 import { CardModal } from './CardModal';
 
