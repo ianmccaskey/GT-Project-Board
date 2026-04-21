@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { Plus, Trash2, Layers } from 'lucide-react';
 
 export function Sidebar() {
-  const { boards, currentBoard, setCurrentBoard, createBoard, deleteBoard } = useApp();
+  const { boards, currentBoard, setCurrentBoard, createBoard, deleteBoard, error } = useApp();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -16,7 +16,8 @@ export function Sidebar() {
       await createBoard(newName.trim());
       setNewName('');
       setCreating(false);
-    } catch {
+    } catch (err: any) {
+      console.error('createBoard failed:', err);
       // Keep the form open so the user can correct the input or retry.
     }
   };
@@ -32,6 +33,9 @@ export function Sidebar() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 mb-2">Boards</p>
+        {error && (
+          <div className="text-xs text-red-400 px-2 py-1 bg-red-900/30 rounded mb-2">{error}</div>
+        )}
         {boards.map(board => (
           <div key={board.id} className="group flex items-center gap-1">
             <button
