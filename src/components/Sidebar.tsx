@@ -12,9 +12,13 @@ export function Sidebar() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    await createBoard(newName.trim());
-    setNewName('');
-    setCreating(false);
+    try {
+      await createBoard(newName.trim());
+      setNewName('');
+      setCreating(false);
+    } catch {
+      // Keep the form open so the user can correct the input or retry.
+    }
   };
 
   return (

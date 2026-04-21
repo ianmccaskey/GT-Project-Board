@@ -136,14 +136,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return data as Tag[];
   };
 
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (preferredBoard: Board | null = state.currentBoard) => {
     try {
       const boards = await fetchBoards();
       let columns: Column[] = [];
       let cards: Card[] = [];
       let tags: Tag[] = [];
 
-      const currentBoard = state.currentBoard || boards?.[0] || null;
+      const currentBoard = preferredBoard
+        ? boards.find(board => board.id === preferredBoard.id) || preferredBoard
+        : boards?.[0] || null;
       if (currentBoard) {
         [columns, cards, tags] = await Promise.all([
           fetchColumns(currentBoard.id),
@@ -188,23 +190,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const createBoard = async (name: string) => {
     try {
-      const { data, error } = await supabase.from('boards').insert({ name }).select().single();
-      if (error) { console.error('createBoard error:', error); setError(error.message); return; }
-      if (data) {
-        const newBoard = data as Board;
-        const { error: colError } = await supabase.from('columns').insert([
-          { board_id: newBoard.id, name: 'Backlog', position: 0 },
-          { board_id: newBoard.id, name: 'In Progress', position: 1 },
-          { board_id: newBoard.id, name: 'Review', position: 2 },
-          { board_id: newBoard.id, name: 'Done', position: 3 },
-        ]);
-        if (colError) { console.error('createBoard columns error:', colError); setError(colError.message); return; }
-        await refreshData();
-        setCurrentBoard(newBoard);
+      const newBoard: Board = {
+        id: crypto.randomUUID(),
+        name,
+        created_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from('boards').insert({ id: newBoard.id, name: newBoard.name });
+      if (error) {
+        console.error('createBoard error:', error);
+        setError(error.message);
+        throw error;
       }
+
+      const { error: colError } = await supabase.from('columns').insert([
+        { board_id: newBoard.id, name: 'Backlog', position: 0 },
+        { board_id: newBoard.id, name: 'In Progress', position: 1 },
+        { board_id: newBoard.id, name: 'Review', position: 2 },
+        { board_id: newBoard.id, name: 'Done', position: 3 },
+      ]);
+      if (colError) {
+        console.error('createBoard columns error:', colError);
+        setError(colError.message);
+        throw colError;
+      }
+
+      setCurrentBoard(newBoard);
+      await refreshData(newBoard);
     } catch (err: any) {
       console.error('createBoard error:', err);
       setError(err.message || 'Failed to create board');
+      throw err;
     }
   };
 
