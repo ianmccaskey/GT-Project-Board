@@ -159,6 +159,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.currentBoard, setError]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refreshData(); }, []);
 
   const setCurrentBoard = useCallback((board: Board | null) => {
@@ -177,6 +178,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error('Board data fetch error:', err);
       setError(err.message || 'Failed to fetch board data');
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentBoard?.id, setError]);
 
   const setViewMode = useCallback((mode: ViewMode) => setState(prev => ({ ...prev, viewMode: mode })), []);
@@ -281,7 +283,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateCard = async (card: Partial<Card> & { id: string }) => {
     try {
-      const { tags, comments, ...rest } = card;
+      const { tags, comments: _comments, ...rest } = card;
       const { error } = await supabase.from('cards').update(rest).eq('id', card.id);
       if (error) { console.error('updateCard error:', error); setError(error.message); return; }
 
