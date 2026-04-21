@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { format, isPast, isToday, startOfDay, endOfWeek } from 'date-fns';
+import { format, isPast, isToday, startOfDay, startOfWeek, endOfWeek } from 'date-fns';
 import { useApp } from '@/context/AppContext';
 import { CardModal } from './CardModal';
 import { Search, Calendar, ArrowUpDown } from 'lucide-react';

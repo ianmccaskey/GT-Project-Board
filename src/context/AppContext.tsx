@@ -255,8 +255,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const reorderColumns = async (ids: string[]) => {
     try {
       const results = await Promise.all(ids.map((id, i) => supabase.from('columns').update({ position: i }).eq('id', id)));
-      const error = results.find(r => r.error);
-      if (error) { console.error('reorderColumns error:', error); setError(error.message || 'Failed to reorder columns'); return; }
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) { console.error('reorderColumns error:', firstError); setError(firstError.message || 'Failed to reorder columns'); return; }
       await refreshData();
     } catch (err: any) {
       console.error('reorderColumns error:', err);
@@ -325,8 +325,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const reorderCards = async (columnId: string, cardIds: string[]) => {
     try {
       const results = await Promise.all(cardIds.map((id, i) => supabase.from('cards').update({ column_id: columnId, position: i }).eq('id', id)));
-      const error = results.find(r => r.error);
-      if (error) { console.error('reorderCards error:', error); setError(error.message || 'Failed to reorder cards'); return; }
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) { console.error('reorderCards error:', firstError); setError(firstError.message || 'Failed to reorder cards'); return; }
       await refreshData();
     } catch (err: any) {
       console.error('reorderCards error:', err);
