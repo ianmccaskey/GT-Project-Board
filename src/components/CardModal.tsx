@@ -17,7 +17,7 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 const TAG_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
 
 export function CardModal({ card, onClose }: { card: Card; onClose: () => void }) {
-  const { updateCard, deleteCard, tags, columns, addComment } = useApp();
+  const { updateCard, deleteCard, tags, columns, addComment, createTag } = useApp();
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [priority, setPriority] = useState<Priority>(card.priority);
@@ -49,9 +49,9 @@ export function CardModal({ card, onClose }: { card: Card; onClose: () => void }
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
-    const { data } = await import('@/lib/supabase').then(m => m.supabase.from('tags').insert({ board_id: card.board_id, name: newTagName.trim(), color: newTagColor }).select().single());
-    if (data) {
-      await updateCard({ ...card, tags: [...card.tags, data] });
+    const tag = await createTag(card.board_id, newTagName.trim(), newTagColor);
+    if (tag) {
+      await updateCard({ ...card, tags: [...card.tags, tag] });
     }
     setNewTagName('');
     setShowAddTag(false);

@@ -7,6 +7,7 @@ create extension if not exists "uuid-ossp";
 create table boards (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
+  owner_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz default now()
 );
 
@@ -79,7 +80,7 @@ create table comments (
 -- Index for fetching comments of a card
 create index idx_comments_card_id on comments(card_id);
 
--- Row Level Security (disabled for now - no auth)
+-- Row Level Security
 alter table boards enable row level security;
 alter table columns enable row level security;
 alter table tags enable row level security;
@@ -87,20 +88,99 @@ alter table cards enable row level security;
 alter table card_tags enable row level security;
 alter table comments enable row level security;
 
--- Allow all operations (no auth)
-create policy "Allow all boards" on boards for all using (true) with check (true);
-create policy "Allow all columns" on columns for all using (true) with check (true);
-create policy "Allow all tags" on tags for all using (true) with check (true);
-create policy "Allow all cards" on cards for all using (true) with check (true);
-create policy "Allow all card_tags" on card_tags for all using (true) with check (true);
-create policy "Allow all comments" on comments for all using (true) with check (true);
+create policy "Users manage their boards"
+  on boards for all
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
 
--- Insert a default board with columns
-insert into boards (id, name) values
-  ('11111111-1111-1111-1111-111111111111', 'My First Board');
+create policy "Users manage columns on their boards"
+  on columns for all
+  using (
+    exists (
+      select 1 from boards
+      where boards.id = columns.board_id
+      and boards.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from boards
+      where boards.id = columns.board_id
+      and boards.owner_id = auth.uid()
+    )
+  );
 
-insert into columns (board_id, name, position) values
-  ('11111111-1111-1111-1111-111111111111', 'Backlog', 0),
-  ('11111111-1111-1111-1111-111111111111', 'In Progress', 1),
-  ('11111111-1111-1111-1111-111111111111', 'Review', 2),
-  ('11111111-1111-1111-1111-111111111111', 'Done', 3);
+create policy "Users manage tags on their boards"
+  on tags for all
+  using (
+    exists (
+      select 1 from boards
+      where boards.id = tags.board_id
+      and boards.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from boards
+      where boards.id = tags.board_id
+      and boards.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users manage cards on their boards"
+  on cards for all
+  using (
+    exists (
+      select 1 from boards
+      where boards.id = cards.board_id
+      and boards.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from boards
+      where boards.id = cards.board_id
+      and boards.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users manage card tags on their boards"
+  on card_tags for all
+  using (
+    exists (
+      select 1 from cards
+      join boards on boards.id = cards.board_id
+      where cards.id = card_tags.card_id
+      and boards.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from cards
+      join boards on boards.id = cards.board_id
+      where cards.id = card_tags.card_id
+      and boards.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users manage comments on their boards"
+  on comments for all
+  using (
+    exists (
+      select 1 from cards
+      join boards on boards.id = cards.board_id
+      where cards.id = comments.card_id
+      and boards.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from cards
+      join boards on boards.id = cards.board_id
+      where cards.id = comments.card_id
+      and boards.owner_id = auth.uid()
+    )
+  );
+
+-- Existing project migration:
+-- alter table boards add column if not exists owner_id uuid references auth.users(id) on delete cascade;

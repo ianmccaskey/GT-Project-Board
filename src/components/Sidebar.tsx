@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Plus, Trash2, Layers } from 'lucide-react';
+import { Plus, Trash2, Layers, LogOut } from 'lucide-react';
 
 export function Sidebar() {
-  const { boards, currentBoard, setCurrentBoard, createBoard, deleteBoard, error } = useApp();
+  const { boards, currentBoard, setCurrentBoard, createBoard, deleteBoard, error, userName, user, logout } = useApp();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -25,9 +25,25 @@ export function Sidebar() {
   return (
     <div className="w-56 bg-gray-900 border-r border-gray-700 flex flex-col h-full">
       <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center gap-2">
-          <Layers size={20} className="text-indigo-400" />
-          <span className="font-bold text-white">Kanban</span>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <Layers size={20} className="text-indigo-400" />
+              <span className="font-bold text-white">Kanban</span>
+            </div>
+            <div className="mt-2">
+              <p className="text-sm font-medium text-white">{userName ?? 'User'}</p>
+              <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { void logout(); }}
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            title="Log out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
 

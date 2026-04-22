@@ -2,9 +2,16 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { Session, User } from '@supabase/supabase-js';
 import type { Board, Column, Card, Tag, Comment, Priority, ViewMode } from '@/types';
 
+const SESSION_STORAGE_KEY = 'kanban.supabase.session-token';
+
 interface AppState {
+  session: Session | null;
+  user: User | null;
+  userName: string | null;
+  authLoading: boolean;
   boards: Board[];
   currentBoard: Board | null;
   columns: Column[];
@@ -18,6 +25,8 @@ interface AppState {
 }
 
 interface AppContextType extends AppState {
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   setCurrentBoard: (board: Board | null) => void;
   setViewMode: (mode: ViewMode) => void;
   setFilterTag: (tagId: string | null) => void;
@@ -36,7 +45,7 @@ interface AppContextType extends AppState {
   deleteCard: (id: string) => Promise<void>;
   moveCard: (cardId: string, toColumnId: string, position: number) => Promise<void>;
   reorderCards: (columnId: string, cardIds: string[]) => Promise<void>;
-  createTag: (boardId: string, name: string, color: string) => Promise<void>;
+  createTag: (boardId: string, name: string, color: string) => Promise<Tag | null>;
   deleteTag: (id: string) => Promise<void>;
   addComment: (cardId: string, content: string) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -52,6 +61,10 @@ export function useApp() {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>({
+    session: null,
+    user: null,
+    userName: null,
+    authLoading: true,
     boards: [],
     currentBoard: null,
     columns: [],
@@ -64,6 +77,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     error: null,
   });
 
+  const getUserName = useCallback((user: User | null) => {
+    if (!user?.email) return null;
+    const email = user.email.toLowerCase();
+    if (email === 'ian@gigatechproducts.com') return 'Ian';
+    if (email === 'todd@gigatechproducts.com') return 'Todd';
+
+    const [localPart] = email.split('@');
+    return localPart.charAt(0).toUpperCase() + localPart.slice(1);
+  }, []);
+
+  const applySession = useCallback((session: Session | null) => {
+    if (typeof window !== 'undefined') {
+      if (session?.access_token) {
+        window.localStorage.setItem(SESSION_STORAGE_KEY, session.access_token);
+      } else {
+        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    }
+
+    setState(prev => ({
+      ...prev,
+      session,
+      user: session?.user ?? null,
+      userName: getUserName(session?.user ?? null),
+      authLoading: false,
+    }));
+  }, [getUserName]);
+
   const setError = useCallback((error: string | null) => {
     setState(prev => ({ ...prev, error }));
   }, []);
@@ -72,19 +113,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
-  const fetchBoards = async () => {
-    const { data, error } = await supabase.from('boards').select('*').order('created_at');
+  const fetchBoards = useCallback(async (ownerId: string) => {
+    const { data, error } = await supabase
+      .from('boards')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('created_at');
     if (error) { console.error('fetchBoards error:', error); throw error; }
     return data as Board[];
-  };
+  }, []);
 
-  const fetchColumns = async (boardId: string) => {
+  const fetchColumns = useCallback(async (boardId: string) => {
     const { data, error } = await supabase.from('columns').select('*').eq('board_id', boardId).order('position');
     if (error) { console.error('fetchColumns error:', error); throw error; }
     return data as Column[];
-  };
+  }, []);
 
-  const fetchCards = async (boardId: string) => {
+  const fetchCards = useCallback(async (boardId: string) => {
     const { data: cards, error } = await supabase.from('cards').select('*').eq('board_id', boardId).order('position');
     if (error) { console.error('fetchCards error:', error); throw error; }
 
@@ -128,24 +173,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       tags: tagMap[card.id] || [],
       comments: commentMap[card.id] || [],
     }));
-  };
+  }, []);
 
-  const fetchTags = async (boardId: string) => {
+  const fetchTags = useCallback(async (boardId: string) => {
     const { data, error } = await supabase.from('tags').select('*').eq('board_id', boardId);
     if (error) { console.error('fetchTags error:', error); throw error; }
     return data as Tag[];
-  };
+  }, []);
 
-  const refreshData = useCallback(async (preferredBoard: Board | null = state.currentBoard) => {
+  const refreshData = useCallback(async (preferredBoard: Board | null = state.currentBoard, ownerId = state.user?.id) => {
+    if (!ownerId) {
+      setState(prev => ({
+        ...prev,
+        boards: [],
+        currentBoard: null,
+        columns: [],
+        cards: [],
+        tags: [],
+        error: null,
+      }));
+      return;
+    }
+
     try {
-      const boards = await fetchBoards();
+      const boards = await fetchBoards(ownerId);
       let columns: Column[] = [];
       let cards: Card[] = [];
       let tags: Tag[] = [];
 
       const currentBoard = preferredBoard
-        ? boards.find(board => board.id === preferredBoard.id) || preferredBoard
-        : boards?.[0] || null;
+        ? boards.find(board => board.id === preferredBoard.id) || boards[0] || null
+        : boards[0] || null;
       if (currentBoard) {
         [columns, cards, tags] = await Promise.all([
           fetchColumns(currentBoard.id),
@@ -159,29 +217,79 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error('refreshData error:', err);
       setError(err.message || 'Failed to refresh data');
     }
-  }, [state.currentBoard, setError]);
+  }, [fetchBoards, fetchCards, fetchColumns, fetchTags, setError, state.currentBoard, state.user?.id]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { refreshData(); }, []);
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('getSession error:', error);
+        if (mounted) {
+          setError(error.message);
+          setState(prev => ({ ...prev, authLoading: false }));
+        }
+        return;
+      }
+
+      if (mounted) {
+        applySession(data.session);
+      }
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
+      setState(prev => ({
+        ...prev,
+        boards: session ? prev.boards : [],
+        currentBoard: session ? prev.currentBoard : null,
+        columns: session ? prev.columns : [],
+        cards: session ? prev.cards : [],
+        tags: session ? prev.tags : [],
+        error: null,
+      }));
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [applySession, setError]);
+
+  useEffect(() => {
+    if (state.authLoading) return;
+    if (!state.user) {
+      void refreshData(null, undefined);
+      return;
+    }
+
+    void refreshData(state.currentBoard, state.user.id);
+  }, [refreshData, state.authLoading, state.currentBoard, state.user]);
 
   const setCurrentBoard = useCallback((board: Board | null) => {
     setState(prev => ({ ...prev, currentBoard: board }));
   }, []);
 
-  useEffect(() => {
-    if (!state.currentBoard) return;
-    Promise.all([
-      fetchColumns(state.currentBoard.id),
-      fetchCards(state.currentBoard.id),
-      fetchTags(state.currentBoard.id),
-    ]).then(([columns, cards, tags]) => {
-      setState(prev => ({ ...prev, columns, cards, tags }));
-    }).catch((err: any) => {
-      console.error('Board data fetch error:', err);
-      setError(err.message || 'Failed to fetch board data');
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.currentBoard?.id, setError]);
+  const login = useCallback(async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message);
+      throw error;
+    }
+
+    applySession(data.session);
+    setError(null);
+  }, [applySession, setError]);
+
+  const logout = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setError(error.message);
+      throw error;
+    }
+
+    applySession(null);
+  }, [applySession, setError]);
 
   const setViewMode = useCallback((mode: ViewMode) => setState(prev => ({ ...prev, viewMode: mode })), []);
   const setFilterTag = useCallback((tagId: string | null) => setState(prev => ({ ...prev, filterTag: tagId })), []);
@@ -189,14 +297,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setFilterDue = useCallback((filter: 'all' | 'overdue' | 'today' | 'week') => setState(prev => ({ ...prev, filterDue: filter })), []);
 
   const createBoard = async (name: string) => {
+    if (!state.user) {
+      const authError = new Error('You must be logged in to create a board');
+      setError(authError.message);
+      throw authError;
+    }
+
     try {
       const newBoard: Board = {
         id: crypto.randomUUID(),
         name,
+        owner_id: state.user.id,
         created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from('boards').insert({ id: newBoard.id, name: newBoard.name });
+      const { error } = await supabase
+        .from('boards')
+        .insert({ id: newBoard.id, name: newBoard.name, owner_id: newBoard.owner_id });
       if (error) {
         console.error('createBoard error:', error);
         setError(error.message);
@@ -216,7 +333,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       setCurrentBoard(newBoard);
-      await refreshData(newBoard);
+      await refreshData(newBoard, state.user.id);
     } catch (err: any) {
       console.error('createBoard error:', err);
       setError(err.message || 'Failed to create board');
@@ -354,12 +471,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const createTag = async (boardId: string, name: string, color: string) => {
     try {
-      const { error } = await supabase.from('tags').insert({ board_id: boardId, name, color });
-      if (error) { console.error('createTag error:', error); setError(error.message); return; }
+      const { data, error } = await supabase.from('tags').insert({ board_id: boardId, name, color }).select().single();
+      if (error) { console.error('createTag error:', error); setError(error.message); return null; }
       await refreshData();
+      return data as Tag;
     } catch (err: any) {
       console.error('createTag error:', err);
       setError(err.message || 'Failed to create tag');
+      return null;
     }
   };
 
@@ -386,7 +505,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ ...state, setCurrentBoard, setViewMode, setFilterTag, setFilterPriority, setFilterDue, setError, clearError, createBoard, deleteBoard, createColumn, updateColumn, deleteColumn, reorderColumns, createCard, updateCard, deleteCard, moveCard, reorderCards, createTag, deleteTag, addComment, refreshData }}>
+    <AppContext.Provider value={{ ...state, login, logout, setCurrentBoard, setViewMode, setFilterTag, setFilterPriority, setFilterDue, setError, clearError, createBoard, deleteBoard, createColumn, updateColumn, deleteColumn, reorderColumns, createCard, updateCard, deleteCard, moveCard, reorderCards, createTag, deleteTag, addComment, refreshData }}>
       {children}
     </AppContext.Provider>
   );

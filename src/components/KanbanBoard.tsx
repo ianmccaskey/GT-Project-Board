@@ -22,7 +22,7 @@ import { ListView } from './ListView';
 import { CalendarView } from './CalendarView';
 
 export function KanbanBoard() {
-  const { columns, cards, currentBoard, viewMode, setViewMode, createColumn, moveCard } = useApp();
+  const { columns, cards, currentBoard, viewMode, setViewMode, createColumn, moveCard, authLoading } = useApp();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
 
   const sensors = useSensors(
@@ -65,7 +65,8 @@ export function KanbanBoard() {
     }
   };
 
-  if (!currentBoard) return <div className="p-8 text-gray-400">No board selected</div>;
+  if (authLoading) return <div className="p-8 text-gray-400">Loading boards...</div>;
+  if (!currentBoard) return <div className="p-8 text-gray-400">No boards yet for this account</div>;
 
   return (
     <div className="flex flex-col h-full">

@@ -4,6 +4,7 @@ export type ViewMode = 'board' | 'list' | 'calendar';
 export interface Board {
   id: string;
   name: string;
+  owner_id: string;
   created_at: string;
 }
 
