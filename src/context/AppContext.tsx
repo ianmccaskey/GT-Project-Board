@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 import type { Board, Column, Card, Tag, Comment, Priority, ViewMode } from '@/types';
@@ -76,6 +76,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     filterDue: 'all',
     error: null,
   });
+  const currentBoardRef = useRef<Board | null>(null);
+  const userIdRef = useRef<string | undefined>(undefined);
+  const skipNextBoardLoadRef = useRef(true);
+  const boardEffectCountsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    currentBoardRef.current = state.currentBoard;
+    userIdRef.current = state.user?.id;
+  }, [state.currentBoard, state.user?.id]);
 
   const getUserName = useCallback((user: User | null) => {
     if (!user?.email) return null;
@@ -181,8 +190,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return data as Tag[];
   }, []);
 
-  const refreshData = useCallback(async (preferredBoard: Board | null = state.currentBoard, ownerId = state.user?.id) => {
+  const refreshData = useCallback(async (preferredBoard: Board | null = currentBoardRef.current, ownerId = userIdRef.current) => {
     if (!ownerId) {
+      skipNextBoardLoadRef.current = true;
       setState(prev => ({
         ...prev,
         boards: [],
@@ -212,12 +222,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
       }
 
+      skipNextBoardLoadRef.current = true;
       setState(prev => ({ ...prev, boards, currentBoard, columns, cards, tags, error: null }));
     } catch (err: any) {
       console.error('refreshData error:', err);
       setError(err.message || 'Failed to refresh data');
     }
-  }, [fetchBoards, fetchCards, fetchColumns, fetchTags, setError, state.currentBoard, state.user?.id]);
+  }, [fetchBoards, fetchCards, fetchColumns, fetchTags, setError]);
+
+  const loadBoardData = useCallback(async (board: Board | null) => {
+    if (!board) {
+      setState(prev => ({ ...prev, columns: [], cards: [], tags: [], error: null }));
+      return;
+    }
+
+    try {
+      const [columns, cards, tags] = await Promise.all([
+        fetchColumns(board.id),
+        fetchCards(board.id),
+        fetchTags(board.id),
+      ]);
+
+      setState(prev => {
+        if (prev.currentBoard?.id !== board.id) {
+          return prev;
+        }
+
+        return { ...prev, columns, cards, tags, error: null };
+      });
+    } catch (err: any) {
+      console.error('loadBoardData error:', err);
+      setError(err.message || 'Failed to load board data');
+    }
+  }, [fetchCards, fetchColumns, fetchTags, setError]);
 
   useEffect(() => {
     let mounted = true;
@@ -263,11 +300,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    void refreshData(state.currentBoard, state.user.id);
-  }, [refreshData, state.authLoading, state.currentBoard, state.user]);
+    void refreshData(currentBoardRef.current, state.user.id);
+  }, [refreshData, state.authLoading, state.user]);
+
+  useEffect(() => {
+    if (state.authLoading || !state.user || !state.currentBoard) return;
+
+    const boardId = state.currentBoard.id;
+    boardEffectCountsRef.current[boardId] = (boardEffectCountsRef.current[boardId] || 0) + 1;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[AppProvider] board data effect', {
+        boardId,
+        runCount: boardEffectCountsRef.current[boardId],
+      });
+    }
+
+    if (skipNextBoardLoadRef.current) {
+      skipNextBoardLoadRef.current = false;
+      return;
+    }
+
+    void loadBoardData(state.currentBoard);
+  }, [loadBoardData, state.authLoading, state.currentBoard, state.user]);
 
   const setCurrentBoard = useCallback((board: Board | null) => {
-    setState(prev => ({ ...prev, currentBoard: board }));
+    setState(prev => {
+      if (prev.currentBoard?.id === board?.id) {
+        return prev;
+      }
+
+      return { ...prev, currentBoard: board };
+    });
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
