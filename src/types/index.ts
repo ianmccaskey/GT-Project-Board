@@ -10,6 +10,7 @@ export type {
   CardMember,
   Checklist,
   ChecklistItem,
+  ChecklistItemWithChecklist,
   Comment,
   Member,
   Milestone,

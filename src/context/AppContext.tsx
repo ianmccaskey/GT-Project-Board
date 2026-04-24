@@ -770,18 +770,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       byColumn[toColumnId].splice(Math.min(position, byColumn[toColumnId].length), 0, movedCard);
 
       // Batch update all affected cards to contiguous positions
-      const updatePromises: Promise<any>[] = [];
+      const updatePromises: Promise<unknown>[] = [];
       Object.entries(byColumn).forEach(([, colCards]) => {
         colCards.forEach((c, i) => {
           if (c.position !== i) {
-            updatePromises.push(supabase.from('cards').update({ position: i }).eq('id', c.id));
+            updatePromises.push(supabase.from('cards').update({ position: i }).eq('id', c.id) as unknown as Promise<unknown>);
           }
         });
       });
 
       if (updatePromises.length > 0) {
         const results = await Promise.all(updatePromises);
-        const firstError = results.find(r => r.error)?.error;
+        const firstError = results.map(r => (r as any).error).find(Boolean);
         if (firstError) { console.error('moveCard renumber error:', firstError); setError(firstError.message); return; }
       }
 

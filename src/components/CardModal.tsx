@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   format,
   formatDistanceToNow,
@@ -34,6 +34,7 @@ import type {
   Card,
   Checklist,
   ChecklistItem,
+  ChecklistItemWithChecklist,
   Comment,
   Member,
   Milestone,
@@ -291,7 +292,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     setExpandedGroups(prev => ({ ...initialExpanded, ...prev }));
   }, [currentMilestone?.id]);
 
-  const closeModal = React.useCallback(() => {
+  const closeModal = useCallback(() => {
     window.history.back();
   }, []);
 
@@ -335,10 +336,6 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     }
     if (!commentsResult.error) setComments((commentsResult.data as Comment[]) ?? []);
     if (!activityResult.error) setActivityEvents((activityResult.data as ActivityEvent[]) ?? []);
-  }
-
-  function closeModal() {
-    window.history.back();
   }
 
   function flashSaved() {
