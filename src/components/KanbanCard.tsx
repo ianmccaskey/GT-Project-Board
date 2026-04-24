@@ -1,20 +1,30 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
+import { differenceInCalendarDays, startOfDay } from 'date-fns';
 import type { DraggableAttributes } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { formatDueDate, formatDueDatePST, isDueOverdue, isDueToday } from '@/lib/dates';
+import { formatDueDate, formatDueDatePST, isDueOverdue, isDueToday, parseDueDate } from '@/lib/dates';
 import { Calendar, MessageSquare, Trash2 } from 'lucide-react';
 import type { Card, Priority } from '@/types';
-import { CardModal } from './CardModal';
 
 const PRIORITY_COLORS: Record<Priority, string> = {
   low: 'bg-green-900/60 text-green-300 border-green-700',
   medium: 'bg-yellow-900/60 text-yellow-300 border-yellow-700',
   high: 'bg-orange-900/60 text-orange-300 border-orange-700',
   urgent: 'bg-red-900/60 text-red-300 border-red-700',
+  none: 'bg-gray-700 text-gray-300 border-gray-500',
+};
+
+const PRIORITY_BORDER_COLORS: Record<Priority, string> = {
+  low: '#22c55e',
+  medium: '#eab308',
+  high: '#f97316',
+  urgent: '#ef4444',
+  none: '#6b7280',
 };
 
 interface KanbanCardProps {
@@ -59,6 +69,14 @@ interface KanbanCardContentProps {
   listeners?: Record<string, unknown>;
 }
 
+function isDueSoon(dateStr: string | null) {
+  const dueDate = parseDueDate(dateStr);
+  if (!dueDate) return false;
+
+  const daysUntilDue = differenceInCalendarDays(startOfDay(dueDate), startOfDay(new Date()));
+  return daysUntilDue > 0 && daysUntilDue <= 7;
+}
+
 function KanbanCardContent({
   card,
   isDragging,
@@ -68,36 +86,57 @@ function KanbanCardContent({
   attributes,
   listeners,
 }: KanbanCardContentProps) {
-  const { deleteCard } = useApp();
-  const [showModal, setShowModal] = useState(false);
+  const { deleteCard, showErrorToast } = useApp();
+  const router = useRouter();
   const dueToday = isDueToday(card.due_date);
   const overdue = isDueOverdue(card.due_date);
+  const dueSoon = isDueSoon(card.due_date);
   const dueDateLabel = formatDueDate(card.due_date);
   const dueDateTooltip = formatDueDatePST(card.due_date);
+  const primaryTag = card.tags.find(tag => tag.id === card.tag_id) ?? card.tags[0];
+  const priorityBorderColor = PRIORITY_BORDER_COLORS[card.priority];
+  const cardStateClasses = overdue
+    ? 'border-red-800 bg-red-950/25 hover:bg-red-950/35'
+    : 'border-gray-600 bg-gray-700/80 hover:bg-gray-700';
+  const dueDateClasses = overdue
+    ? 'bg-red-900/60 text-red-300'
+    : dueToday
+      ? 'bg-yellow-900/60 text-yellow-300'
+      : dueSoon
+        ? 'bg-orange-900/60 text-orange-300'
+        : 'bg-gray-700/70 text-gray-400';
 
   return (
     <>
       <div
         ref={setNodeRef}
-        style={style}
+        style={{ ...style, borderLeftColor: priorityBorderColor }}
         {...attributes}
         {...listeners}
-        onClick={() => setShowModal(true)}
-        className={`bg-gray-700/80 rounded-lg p-3 cursor-pointer hover:bg-gray-700 transition-colors group border border-gray-600 ${isSortableDragging ? 'opacity-50' : ''} ${isDragging ? 'shadow-2xl ring-2 ring-indigo-500' : ''}`}
+        onClick={() => router.push(`/board/${card.board_id}/card/${card.id}`)}
+        className={`relative rounded-lg border border-l-4 p-3 cursor-pointer transition-colors group ${cardStateClasses} ${isSortableDragging ? 'opacity-50' : ''} ${isDragging ? 'shadow-2xl ring-2 ring-indigo-500' : ''}`}
       >
-        {/* Tags */}
-        {card.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {card.tags.map(tag => (
-              <span key={tag.id} className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: tag.color + '33', color: tag.color, border: `1px solid ${tag.color}66` }}>
-                {tag.name}
-              </span>
-            ))}
-          </div>
-        )}
-
         {/* Title */}
-        <p className="text-sm text-gray-100 font-medium leading-snug">{card.title}</p>
+        <div className="flex items-start gap-2">
+          {primaryTag && (
+            <span
+              className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full border border-white/20"
+              style={{ backgroundColor: primaryTag.color }}
+              aria-hidden="true"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-gray-100 font-medium leading-snug">{card.title}</p>
+            {primaryTag && (
+              <span
+                className="mt-2 inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                style={{ backgroundColor: `${primaryTag.color}22`, color: primaryTag.color, borderColor: `${primaryTag.color}55` }}
+              >
+                {primaryTag.name}
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Description preview */}
         {card.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{card.description}</p>}
@@ -108,7 +147,7 @@ function KanbanCardContent({
             {card.due_date && (
               <span
                 title={dueDateTooltip}
-                className={`text-xs flex items-center gap-1 px-1.5 py-0.5 rounded ${overdue ? 'bg-red-900/60 text-red-300' : dueToday ? 'bg-yellow-900/60 text-yellow-300' : 'text-gray-400'}`}
+                className={`text-xs flex items-center gap-1 px-1.5 py-0.5 rounded ${dueDateClasses}`}
               >
                 <Calendar size={11} />
                 {dueDateLabel}
@@ -128,14 +167,17 @@ function KanbanCardContent({
 
         {/* Delete button */}
         <button
-          onClick={e => { e.stopPropagation(); deleteCard(card.id); }}
+          onClick={e => {
+            e.stopPropagation();
+            deleteCard(card.id).catch(() => {
+              showErrorToast('Could not delete card. Check your permissions or connection.');
+            });
+          }}
           className="absolute top-2 right-2 p-1 bg-red-600/80 hover:bg-red-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <Trash2 size={12} />
         </button>
       </div>
-
-      {showModal && <CardModal card={card} onClose={() => setShowModal(false)} />}
     </>
   );
 }

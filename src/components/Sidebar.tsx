@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { Plus, Trash2, Layers, LogOut } from 'lucide-react';
 
 export function Sidebar() {
+  const router = useRouter();
   const { boards, currentBoard, setCurrentBoard, createBoard, deleteBoard, error, userName, user, logout } = useApp();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -55,7 +57,10 @@ export function Sidebar() {
         {boards.map(board => (
           <div key={board.id} className="group flex items-center gap-1">
             <button
-              onClick={() => setCurrentBoard(board)}
+              onClick={() => {
+                setCurrentBoard(board);
+                router.push(`/board/${board.id}`);
+              }}
               className={`flex-1 text-left px-3 py-2 rounded-lg text-sm truncate transition-colors ${currentBoard?.id === board.id ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}
             >
               {board.name}

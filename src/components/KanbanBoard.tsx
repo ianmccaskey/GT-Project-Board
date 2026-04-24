@@ -73,7 +73,7 @@ export function KanbanBoard() {
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
-        <h1 className="text-lg font-bold text-white">{currentBoard.name}</h1>
+        <div className="text-sm text-gray-400">Switch board views</div>
         <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
           {(['board', 'list', 'calendar'] as const).map(mode => (
             <button

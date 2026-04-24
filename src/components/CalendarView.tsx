@@ -3,15 +3,15 @@
 import { useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isToday, isPast } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { getDueDateKey } from '@/lib/dates';
-import { CardModal } from './CardModal';
 import type { Card } from '@/types';
 
 export function CalendarView() {
   const { cards } = useApp();
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -73,7 +73,7 @@ export function CalendarView() {
                 {dayCards.map(card => (
                   <button
                     key={card.id}
-                    onClick={() => setSelectedCard(card)}
+                    onClick={() => router.push(`/board/${card.board_id}/card/${card.id}`)}
                     className="w-full text-left text-xs px-1.5 py-0.5 rounded truncate bg-indigo-900/60 text-indigo-200 hover:bg-indigo-800/60 transition-colors"
                   >
                     {card.title}
@@ -84,8 +84,6 @@ export function CalendarView() {
           );
         })}
       </div>
-
-      {selectedCard && <CardModal card={selectedCard} onClose={() => setSelectedCard(null)} />}
     </div>
   );
 }

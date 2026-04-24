@@ -1,19 +1,19 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { formatDueDate, formatDueDatePST, isDueOverdue, isDueThisWeek, isDueToday, parseDueDate } from '@/lib/dates';
-import { CardModal } from './CardModal';
 import { Search, Calendar, ArrowUpDown } from 'lucide-react';
-import type { Card, Priority } from '@/types';
+import type { Priority } from '@/types';
 
-const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
 
 export function ListView() {
   const { cards, columns, filterPriority, filterDue, filterTag, setFilterPriority, setFilterDue } = useApp();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'due_date' | 'created'>('priority');
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const filtered = useMemo(() => {
     let result = cards;
@@ -51,7 +51,7 @@ export function ListView() {
         </div>
         <select value={filterPriority || ''} onChange={e => setFilterPriority(e.target.value as Priority || null)} className="px-3 py-2 text-sm bg-gray-800 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500">
           <option value="">All Priorities</option>
-          {(['low', 'medium', 'high', 'urgent'] as Priority[]).map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+          {(['low', 'medium', 'high', 'urgent', 'none'] as Priority[]).map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
         </select>
         <select value={filterDue} onChange={e => setFilterDue(e.target.value as any)} className="px-3 py-2 text-sm bg-gray-800 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500">
           <option value="all">All Dates</option>
@@ -81,11 +81,11 @@ export function ListView() {
               const overdue = isDueOverdue(card.due_date);
               const dueToday = isDueToday(card.due_date);
               return (
-                <tr key={card.id} onClick={() => setSelectedCard(card)} className="hover:bg-gray-700/30 cursor-pointer transition-colors">
+                <tr key={card.id} onClick={() => router.push(`/board/${card.board_id}/card/${card.id}`)} className="hover:bg-gray-700/30 cursor-pointer transition-colors">
                   <td className="px-4 py-3 text-white font-medium">{card.title}</td>
                   <td className="px-4 py-3 text-gray-400">{getColumn(card.column_id)?.name}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${{ low: 'bg-green-900/60 text-green-300', medium: 'bg-yellow-900/60 text-yellow-300', high: 'bg-orange-900/60 text-orange-300', urgent: 'bg-red-900/60 text-red-300' }[card.priority]}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${{ low: 'bg-green-900/60 text-green-300', medium: 'bg-yellow-900/60 text-yellow-300', high: 'bg-orange-900/60 text-orange-300', urgent: 'bg-red-900/60 text-red-300', none: 'bg-gray-700 text-gray-300' }[card.priority]}`}>
                       {card.priority}
                     </span>
                   </td>
@@ -112,8 +112,6 @@ export function ListView() {
           </tbody>
         </table>
       </div>
-
-      {selectedCard && <CardModal card={selectedCard} onClose={() => setSelectedCard(null)} />}
     </div>
   );
 }

@@ -1,4 +1,22 @@
-export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+import type { Agent, CardExtensions, Comment, Member, Tag } from './database';
+
+export type {
+  ActivityEvent,
+  Agent,
+  Assignee,
+  AssigneeKind,
+  CardAgent,
+  CardExtensions,
+  CardMember,
+  Checklist,
+  ChecklistItem,
+  Comment,
+  Member,
+  Milestone,
+  Tag,
+} from './database';
+
+export type Priority = 'low' | 'medium' | 'high' | 'urgent' | 'none';
 export type ViewMode = 'board' | 'list' | 'calendar';
 
 export interface Board {
@@ -16,14 +34,7 @@ export interface Column {
   created_at: string;
 }
 
-export interface Tag {
-  id: string;
-  board_id: string;
-  name: string;
-  color: string;
-}
-
-export interface Card {
+export interface Card extends CardExtensions {
   id: string;
   column_id: string;
   board_id: string;
@@ -31,15 +42,9 @@ export interface Card {
   description: string | null;
   position: number;
   priority: Priority;
-  due_date: string | null;
   created_at: string;
   tags: Tag[];
+  members: Member[];
+  agents: Agent[];
   comments: Comment[];
-}
-
-export interface Comment {
-  id: string;
-  card_id: string;
-  content: string;
-  created_at: string;
 }
