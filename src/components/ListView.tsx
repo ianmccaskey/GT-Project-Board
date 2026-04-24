@@ -10,7 +10,7 @@ import type { Priority } from '@/types';
 const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
 
 export function ListView() {
-  const { cards, columns, filterPriority, filterDue, filterTag, setFilterPriority, setFilterDue } = useApp();
+  const { cards, columns, filterPriority, filterDue, filterTag, setFilterPriority, setFilterDue, dataLoading, error } = useApp();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'priority' | 'due_date' | 'created'>('priority');
@@ -40,6 +40,26 @@ export function ListView() {
   }, [cards, search, filterPriority, filterDue, filterTag, sortBy]);
 
   const getColumn = (id: string) => columns.find(c => c.id === id);
+
+  if (dataLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="h-10 bg-gray-800 rounded-lg animate-pulse" />
+        <div className="h-64 bg-gray-800/70 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-xl border border-red-700 bg-red-950/50 p-6 text-red-200">
+          <p className="font-medium">Failed to load cards</p>
+          <p className="text-sm text-red-300 mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-4">

@@ -9,7 +9,7 @@ import { getDueDateKey } from '@/lib/dates';
 import type { Card } from '@/types';
 
 export function CalendarView() {
-  const { cards } = useApp();
+  const { cards, dataLoading, error } = useApp();
   const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -35,6 +35,26 @@ export function CalendarView() {
 
   const prevMonth = () => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1));
   const nextMonth = () => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() + 1));
+
+  if (dataLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="h-8 w-48 bg-gray-800 rounded-lg animate-pulse" />
+        <div className="h-96 bg-gray-800/70 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-xl border border-red-700 bg-red-950/50 p-6 text-red-200">
+          <p className="font-medium">Failed to load calendar</p>
+          <p className="text-sm text-red-300 mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-4">

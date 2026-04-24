@@ -13,6 +13,7 @@ interface AppState {
   user: User | null;
   userName: string | null;
   authLoading: boolean;
+  dataLoading: boolean;
   boards: Board[];
   currentBoard: Board | null;
   columns: Column[];
@@ -129,6 +130,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     user: null,
     userName: null,
     authLoading: true,
+    dataLoading: false,
     boards: [],
     currentBoard: null,
     columns: [],
@@ -279,13 +281,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         supabase.from('card_agents').select('*').in('card_id', cardIds),
         supabase.from('comments').select('*').in('card_id', cardIds),
       ]);
-      if (ctResult.error) { console.error('fetchCardTags error:', ctResult.error); throw ctResult.error; }
-      if (tResult.error) { console.error('fetchTags error:', tResult.error); throw tResult.error; }
-      if (mResult.error) { console.error('fetchMembers error:', mResult.error); throw mResult.error; }
-      if (aResult.error) { console.error('fetchAgents error:', aResult.error); throw aResult.error; }
-      if (cmResult.error) { console.error('fetchCardMembers error:', cmResult.error); throw cmResult.error; }
-      if (caResult.error) { console.error('fetchCardAgents error:', caResult.error); throw caResult.error; }
-      if (cResult.error) { console.error('fetchComments error:', cResult.error); throw cResult.error; }
+      if (ctResult.error) console.error('fetchCardTags error:', ctResult.error);
+      if (tResult.error) console.error('fetchTags error:', tResult.error);
+      if (mResult.error) console.error('fetchMembers error:', mResult.error);
+      if (aResult.error) console.error('fetchAgents error:', aResult.error);
+      if (cmResult.error) console.error('fetchCardMembers error:', cmResult.error);
+      if (caResult.error) console.error('fetchCardAgents error:', caResult.error);
+      if (cResult.error) console.error('fetchComments error:', cResult.error);
       cardTags = ctResult.data || [];
       tags = (tResult.data as Tag[]) || [];
       members = (mResult.data as Member[]) || [];
@@ -371,6 +373,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    setState(prev => ({ ...prev, dataLoading: true, error: null }));
     try {
       const boards = await fetchBoards(ownerId);
       let columns: Column[] = [];
@@ -393,19 +396,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       skipNextBoardLoadRef.current = true;
-      setState(prev => ({ ...prev, boards, currentBoard, columns, cards, tags, members, agents, error: null }));
+      setState(prev => ({ ...prev, boards, currentBoard, columns, cards, tags, members, agents, error: null, dataLoading: false }));
     } catch (err: any) {
       console.error('refreshData error:', err);
-      setError(err.message || 'Failed to refresh data');
+      setState(prev => ({ ...prev, error: err.message || 'Failed to refresh data', dataLoading: false }));
     }
-  }, [fetchAgents, fetchBoards, fetchCards, fetchColumns, fetchMembers, fetchTags, setError]);
+  }, [fetchAgents, fetchBoards, fetchCards, fetchColumns, fetchMembers, fetchTags]);
 
   const loadBoardData = useCallback(async (board: Board | null) => {
     if (!board) {
-      setState(prev => ({ ...prev, columns: [], cards: [], tags: [], members: [], agents: [], error: null }));
+      setState(prev => ({ ...prev, columns: [], cards: [], tags: [], members: [], agents: [], error: null, dataLoading: false }));
       return;
     }
 
+    setState(prev => ({ ...prev, dataLoading: true, error: null }));
     try {
       const [columns, cards, tags, members, agents] = await Promise.all([
         fetchColumns(board.id),
@@ -420,13 +424,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return prev;
         }
 
-        return { ...prev, columns, cards, tags, members, agents, error: null };
+        return { ...prev, columns, cards, tags, members, agents, error: null, dataLoading: false };
       });
     } catch (err: any) {
       console.error('loadBoardData error:', err);
-      setError(err.message || 'Failed to load board data');
+      setState(prev => ({ ...prev, error: err.message || 'Failed to load board data', dataLoading: false }));
     }
-  }, [fetchAgents, fetchCards, fetchColumns, fetchMembers, fetchTags, setError]);
+  }, [fetchAgents, fetchCards, fetchColumns, fetchMembers, fetchTags]);
 
   useEffect(() => {
     let mounted = true;
@@ -731,8 +735,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const moveCard = async (cardId: string, toColumnId: string, position: number) => {
     try {
-      const { error } = await supabase.from('cards').update({ column_id: toColumnId, position }).eq('id', cardId);
-      if (error) { console.error('moveCard error:', error); setError(error.message); return; }
+      const card = state.cards.find(c => c.id === cardId);
+      const fromColumnId = card?.column_id;
+      const targetColumnIds = [...new Set([fromColumnId, toColumnId].filter(Boolean))] as string[];
+
+      // Move card to target column with a temporary high position to avoid collisions
+      const { error: moveError } = await supabase
+        .from('cards')
+        .update({ column_id: toColumnId, position: 999999 })
+        .eq('id', cardId);
+      if (moveError) { console.error('moveCard error:', moveError); setError(moveError.message); return; }
+
+      // Fetch remaining cards in affected columns
+      const { data: allColumnCards, error: fetchError } = await supabase
+        .from('cards')
+        .select('id, column_id, position')
+        .in('column_id', targetColumnIds)
+        .is('deleted_at', null)
+        .neq('id', cardId)
+        .order('position');
+
+      if (fetchError) { console.error('moveCard fetch error:', fetchError); setError(fetchError.message); return; }
+
+      // Group by column
+      const byColumn: Record<string, { id: string; position: number }[]> = {};
+      targetColumnIds.forEach(id => { byColumn[id] = []; });
+      allColumnCards?.forEach(c => {
+        if (!byColumn[c.column_id]) byColumn[c.column_id] = [];
+        byColumn[c.column_id].push(c);
+      });
+
+      // Insert moved card at desired index in target column
+      const movedCard = { id: cardId, column_id: toColumnId, position: 999999 };
+      byColumn[toColumnId].splice(Math.min(position, byColumn[toColumnId].length), 0, movedCard);
+
+      // Batch update all affected cards to contiguous positions
+      const updatePromises: Promise<any>[] = [];
+      Object.entries(byColumn).forEach(([, colCards]) => {
+        colCards.forEach((c, i) => {
+          if (c.position !== i) {
+            updatePromises.push(supabase.from('cards').update({ position: i }).eq('id', c.id));
+          }
+        });
+      });
+
+      if (updatePromises.length > 0) {
+        const results = await Promise.all(updatePromises);
+        const firstError = results.find(r => r.error)?.error;
+        if (firstError) { console.error('moveCard renumber error:', firstError); setError(firstError.message); return; }
+      }
+
       await refreshData();
     } catch (err: any) {
       console.error('moveCard error:', err);
@@ -867,8 +919,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const contextValue = React.useMemo(() => ({
+    ...state,
+    login,
+    logout,
+    setCurrentBoard,
+    setViewMode,
+    setFilterTag,
+    setFilterPriority,
+    setFilterDue,
+    setError,
+    clearError,
+    createBoard,
+    deleteBoard,
+    createColumn,
+    updateColumn,
+    deleteColumn,
+    reorderColumns,
+    createCard,
+    updateCard,
+    deleteCard,
+    restoreDeletedCard,
+    moveCard,
+    reorderCards,
+    createTag,
+    deleteTag,
+    createMember,
+    updateMember,
+    deleteMember,
+    createAgent,
+    updateAgent,
+    deleteAgent,
+    addComment,
+    refreshData,
+    showErrorToast,
+  }), [state, login, logout, setCurrentBoard, setViewMode, setFilterTag, setFilterPriority, setFilterDue, setError, clearError, createBoard, deleteBoard, createColumn, updateColumn, deleteColumn, reorderColumns, createCard, updateCard, deleteCard, restoreDeletedCard, moveCard, reorderCards, createTag, deleteTag, createMember, updateMember, deleteMember, createAgent, updateAgent, deleteAgent, addComment, refreshData, showErrorToast]);
+
   return (
-    <AppContext.Provider value={{ ...state, login, logout, setCurrentBoard, setViewMode, setFilterTag, setFilterPriority, setFilterDue, setError, clearError, createBoard, deleteBoard, createColumn, updateColumn, deleteColumn, reorderColumns, createCard, updateCard, deleteCard, restoreDeletedCard, moveCard, reorderCards, createTag, deleteTag, createMember, updateMember, deleteMember, createAgent, updateAgent, deleteAgent, addComment, refreshData, showErrorToast }}>
+    <AppContext.Provider value={contextValue}>
       {children}
       <AppToastPortal
         toast={toast}

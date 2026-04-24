@@ -113,8 +113,17 @@ function KanbanCardContent({
         style={{ ...style, borderLeftColor: priorityBorderColor }}
         {...attributes}
         {...listeners}
+        role="button"
+        tabIndex={0}
+        aria-label={`Open card: ${card.title}`}
         onClick={() => router.push(`/board/${card.board_id}/card/${card.id}`)}
-        className={`relative rounded-lg border border-l-4 p-3 cursor-pointer transition-colors group ${cardStateClasses} ${isSortableDragging ? 'opacity-50' : ''} ${isDragging ? 'shadow-2xl ring-2 ring-indigo-500' : ''}`}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            router.push(`/board/${card.board_id}/card/${card.id}`);
+          }
+        }}
+        className={`relative rounded-lg border border-l-4 p-3 cursor-pointer transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${cardStateClasses} ${isSortableDragging ? 'opacity-50' : ''} ${isDragging ? 'shadow-2xl ring-2 ring-indigo-500' : ''}`}
       >
         {/* Title */}
         <div className="flex items-start gap-2">
@@ -167,6 +176,7 @@ function KanbanCardContent({
 
         {/* Delete button */}
         <button
+          aria-label="Delete card"
           onClick={e => {
             e.stopPropagation();
             deleteCard(card.id).catch(() => {

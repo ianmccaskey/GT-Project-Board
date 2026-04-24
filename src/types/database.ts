@@ -72,6 +72,8 @@ export interface ChecklistItem {
   due_date: string | null;
 }
 
+export type ChecklistItemWithChecklist = ChecklistItem & { checklists: { card_id: string } };
+
 export interface Comment {
   id: string;
   card_id: string | null;

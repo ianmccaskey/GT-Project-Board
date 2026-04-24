@@ -59,7 +59,7 @@ export function KanbanColumn({ column, cards }: { column: Column; cards: Card[] 
               <span className="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded-full">{cards.length}</span>
             </div>
             <div className="relative">
-              <button onClick={() => setShowMenu(!showMenu)} className="p-1 text-gray-400 hover:text-white rounded">
+              <button onClick={() => setShowMenu(!showMenu)} className="p-1 text-gray-400 hover:text-white rounded" aria-label="Column options">
                 <MoreHorizontal size={16} />
               </button>
               {showMenu && (

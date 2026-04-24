@@ -81,6 +81,7 @@ export function KanbanBoard() {
               onClick={() => setViewMode(mode)}
               className={`p-2 rounded-md transition-colors ${viewMode === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}
               title={mode.charAt(0).toUpperCase() + mode.slice(1)}
+              aria-label={`${mode.charAt(0).toUpperCase() + mode.slice(1)} view`}
             >
               {mode === 'board' ? <Columns3 size={16} /> : mode === 'list' ? <LayoutList size={16} /> : <CalendarDays size={16} />}
             </button>
@@ -100,7 +101,15 @@ export function KanbanBoard() {
                 ))}
               </SortableContext>
               <button
-                onClick={() => createColumn(prompt('Column name:') || 'New Column')}
+                onClick={() => {
+                  const name = prompt('Column name:');
+                  if (!name || !name.trim()) return;
+                  if (name.trim().length > 100) {
+                    alert('Column name must be 100 characters or less');
+                    return;
+                  }
+                  createColumn(name.trim());
+                }}
                 className="flex-shrink-0 w-64 h-fit flex items-center justify-center gap-2 bg-gray-800/50 hover:bg-gray-800 border-2 border-dashed border-gray-600 hover:border-gray-500 rounded-xl py-8 text-gray-400 hover:text-gray-300 transition-colors"
               >
                 <Plus size={20} /> Add Column

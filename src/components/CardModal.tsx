@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   format,
   formatDistanceToNow,
@@ -225,14 +225,21 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
   const cardAgents = liveCard.agents;
   const membersById = new Map(members.map(member => [member.id, member]));
   const agentsById = new Map(agents.map(agent => [agent.id, agent]));
-  const overallProgress = getChecklistProgress(checklistItems);
-  const currentMilestone = milestones.find(milestone => !getMilestoneCompletion(milestone, checklistItems)) ?? null;
-  const visibleCommentsAndActivity = [
-    ...comments.map(comment => ({ type: 'comment' as const, createdAt: comment.created_at, item: comment })),
-    ...(activityFilter === 'all'
-      ? activityEvents.map(event => ({ type: 'event' as const, createdAt: event.created_at, item: event }))
-      : []),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const overallProgress = useMemo(() => getChecklistProgress(checklistItems), [checklistItems]);
+  const currentMilestone = useMemo(
+    () => milestones.find(milestone => !getMilestoneCompletion(milestone, checklistItems)) ?? null,
+    [milestones, checklistItems]
+  );
+  const visibleCommentsAndActivity = useMemo(
+    () =>
+      [
+        ...comments.map(comment => ({ type: 'comment' as const, createdAt: comment.created_at, item: comment })),
+        ...(activityFilter === 'all'
+          ? activityEvents.map(event => ({ type: 'event' as const, createdAt: event.created_at, item: event }))
+          : []),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [comments, activityEvents, activityFilter]
+  );
 
   useEffect(() => {
     setDraft({
@@ -266,7 +273,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
       if (!milestonesResult.error) setMilestones((milestonesResult.data as Milestone[]) ?? []);
       if (!checklistsResult.error) setChecklists((checklistsResult.data as Checklist[]) ?? []);
       if (!itemsResult.error) {
-        const flattened = ((itemsResult.data as Array<ChecklistItem & { checklists: { card_id: string } }>) ?? []).map(({ checklists: _checklists, ...item }) => item);
+        const flattened = ((itemsResult.data as ChecklistItemWithChecklist[]) ?? []).map(({ checklists: _checklists, ...item }) => item);
         setChecklistItems(flattened);
       }
       if (!commentsResult.error) setComments((commentsResult.data as Comment[]) ?? []);
@@ -284,6 +291,10 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     setExpandedGroups(prev => ({ ...initialExpanded, ...prev }));
   }, [currentMilestone?.id]);
 
+  const closeModal = React.useCallback(() => {
+    window.history.back();
+  }, []);
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -293,7 +304,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  });
+  }, [closeModal]);
 
   useEffect(() => {
     return () => {
@@ -319,7 +330,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     if (!milestonesResult.error) setMilestones((milestonesResult.data as Milestone[]) ?? []);
     if (!checklistsResult.error) setChecklists((checklistsResult.data as Checklist[]) ?? []);
     if (!itemsResult.error) {
-      const flattened = ((itemsResult.data as Array<ChecklistItem & { checklists: { card_id: string } }>) ?? []).map(({ checklists: _checklists, ...item }) => item);
+      const flattened = ((itemsResult.data as ChecklistItemWithChecklist[]) ?? []).map(({ checklists: _checklists, ...item }) => item);
       setChecklistItems(flattened);
     }
     if (!commentsResult.error) setComments((commentsResult.data as Comment[]) ?? []);
@@ -394,12 +405,19 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
 
   async function handleCreateTag() {
     if (!newTagName.trim()) return;
-    const createdTag = await createTag(boardId, newTagName.trim(), newTagColor);
-    if (!createdTag) return;
+    // Insert tag directly to avoid createTag's internal refreshData racing with updateCard
+    const { data: createdTag, error: tagError } = await supabase
+      .from('tags')
+      .insert({ board_id: boardId, name: newTagName.trim(), color: newTagColor })
+      .select()
+      .single();
+    if (tagError || !createdTag) {
+      showErrorToast(tagError?.message || 'Failed to create tag');
+      return;
+    }
     setNewTagName('');
-    // Set draft and save directly — don't call handleTagChange (stale tags array race)
     setDraft(current => ({ ...current, tagId: createdTag.id }));
-    const ok = await updateCard({ id: card.id, tag_id: createdTag.id, tags: [createdTag] });
+    const ok = await updateCard({ id: card.id, tag_id: createdTag.id, tags: [createdTag as Tag] });
     if (ok) {
       setShowTagPicker(false);
       await loadCardSections();
@@ -592,7 +610,10 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     const body = commentInput.trim();
     if (!body || !user?.id) return;
     const { error } = await supabase.from('comments').insert({ card_id: card.id, author_id: user.id, body });
-    if (error) return;
+    if (error) {
+      showErrorToast(error.message || 'Failed to post comment');
+      return;
+    }
     setCommentInput('');
     await loadCardSections();
     await refreshData();
