@@ -176,7 +176,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     title: card.title,
     description: card.description ?? '',
     priority: card.priority,
-    tagId: card.tag_id,
+    tagId: card.tags[0]?.id ?? null,
     dueDate: getDueDateInputValue(card.due_date),
     dueTime: getDueTimeInputValue(card.due_date),
   });
@@ -247,7 +247,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
       title: card.title,
       description: card.description ?? '',
       priority: card.priority,
-      tagId: card.tag_id,
+      tagId: card.tags[0]?.id ?? null,
       dueDate: getDueDateInputValue(card.due_date),
       dueTime: getDueTimeInputValue(card.due_date),
     });
@@ -393,7 +393,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     setDraft(current => ({ ...current, tagId }));
     const nextTag = tagId ? tags.find(tag => tag.id === tagId) : null;
     const nextTags = nextTag ? [nextTag] : [];
-    const ok = await saveCardPatch('tag', { tag_id: tagId, tags: nextTags });
+    const ok = await saveCardPatch('tag', { tags: nextTags });
     if (ok) {
       setShowTagPicker(false);
       await loadCardSections();
@@ -414,7 +414,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     }
     setNewTagName('');
     setDraft(current => ({ ...current, tagId: createdTag.id }));
-    const ok = await updateCard({ id: card.id, tag_id: createdTag.id, tags: [createdTag as Tag] });
+    const ok = await updateCard({ id: card.id, tags: [createdTag as Tag] });
     if (ok) {
       setShowTagPicker(false);
       await loadCardSections();

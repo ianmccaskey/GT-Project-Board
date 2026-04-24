@@ -27,7 +27,6 @@ export interface Agent {
 }
 
 export interface CardExtensions {
-  tag_id: string | null;
   due_date: string | null;
   watchers: string[];
   deleted_at: string | null;

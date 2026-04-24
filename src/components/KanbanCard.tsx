@@ -93,7 +93,7 @@ function KanbanCardContent({
   const dueSoon = isDueSoon(card.due_date);
   const dueDateLabel = formatDueDate(card.due_date);
   const dueDateTooltip = formatDueDatePST(card.due_date);
-  const primaryTag = card.tags.find(tag => tag.id === card.tag_id) ?? card.tags[0];
+  const primaryTag = card.tags[0];
   const priorityBorderColor = PRIORITY_BORDER_COLORS[card.priority];
   const cardStateClasses = overdue
     ? 'border-red-800 bg-red-950/25 hover:bg-red-950/35'
