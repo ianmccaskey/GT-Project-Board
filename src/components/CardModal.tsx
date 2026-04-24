@@ -188,7 +188,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [watching, setWatching] = useState(card.watchers.includes(user?.id ?? ''));
+  const [watching, setWatching] = useState(card.watchers?.includes(user?.id ?? '') ?? false);
   const [commentInput, setCommentInput] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentBody, setEditingCommentBody] = useState('');
@@ -243,7 +243,7 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
       dueDate: getDueDateInputValue(card.due_date),
       dueTime: getDueTimeInputValue(card.due_date),
     });
-    setWatching(card.watchers.includes(user?.id ?? ''));
+    setWatching(card.watchers?.includes(user?.id ?? '') ?? false);
     setComments(card.comments);
   }, [card, user?.id]);
 
@@ -476,8 +476,8 @@ export function CardModal({ card, boardId }: { card: Card; boardId: string }) {
     if (!userId) return;
     const nextWatching = !watching;
     const nextWatchers = nextWatching
-      ? Array.from(new Set([...liveCard.watchers, userId]))
-      : liveCard.watchers.filter(watcherId => watcherId !== userId);
+      ? Array.from(new Set([...(liveCard.watchers ?? []), userId]))
+      : (liveCard.watchers ?? []).filter(watcherId => watcherId !== userId);
     setWatching(nextWatching);
     await saveCardPatch('watchers', { watchers: nextWatchers });
   }
