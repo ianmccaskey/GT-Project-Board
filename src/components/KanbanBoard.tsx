@@ -16,6 +16,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { useApp } from '@/context/AppContext';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
+import { DailyTaskRow } from './DailyTaskRow';
 import { Plus, CalendarDays, LayoutList, Columns3 } from 'lucide-react';
 import type { Card } from '@/types';
 import { ListView } from './ListView';
@@ -89,24 +90,27 @@ export function KanbanBoard() {
 
       {/* Board Content */}
       {viewMode === 'board' ? (
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 p-6 overflow-x-auto flex-1">
-            <SortableContext items={columnIds} strategy={verticalListSortingStrategy}>
-              {columns.map(column => (
-                <KanbanColumn key={column.id} column={column} cards={cards.filter(c => c.column_id === column.id)} />
-              ))}
-            </SortableContext>
-            <button
-              onClick={() => createColumn(prompt('Column name:') || 'New Column')}
-              className="flex-shrink-0 w-64 h-fit flex items-center justify-center gap-2 bg-gray-800/50 hover:bg-gray-800 border-2 border-dashed border-gray-600 hover:border-gray-500 rounded-xl py-8 text-gray-400 hover:text-gray-300 transition-colors"
-            >
-              <Plus size={20} /> Add Column
-            </button>
-          </div>
-          <DragOverlay>
-            {activeCard && <KanbanCard card={activeCard} isDragging />}
-          </DragOverlay>
-        </DndContext>
+        <>
+          <DailyTaskRow cards={cards} />
+          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="flex gap-4 p-6 overflow-x-auto flex-1">
+              <SortableContext items={columnIds} strategy={verticalListSortingStrategy}>
+                {columns.map(column => (
+                  <KanbanColumn key={column.id} column={column} cards={cards.filter(c => c.column_id === column.id)} />
+                ))}
+              </SortableContext>
+              <button
+                onClick={() => createColumn(prompt('Column name:') || 'New Column')}
+                className="flex-shrink-0 w-64 h-fit flex items-center justify-center gap-2 bg-gray-800/50 hover:bg-gray-800 border-2 border-dashed border-gray-600 hover:border-gray-500 rounded-xl py-8 text-gray-400 hover:text-gray-300 transition-colors"
+              >
+                <Plus size={20} /> Add Column
+              </button>
+            </div>
+            <DragOverlay>
+              {activeCard && <KanbanCard card={activeCard} isDragging />}
+            </DragOverlay>
+          </DndContext>
+        </>
       ) : viewMode === 'list' ? (
         <ListView />
       ) : (

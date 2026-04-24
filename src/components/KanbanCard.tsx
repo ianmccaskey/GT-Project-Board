@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
+import type { DraggableAttributes } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { format, isPast, isToday } from 'date-fns';
 import { useApp } from '@/context/AppContext';
+import { formatDueDate, formatDueDatePST, isDueOverdue, isDueToday } from '@/lib/dates';
 import { Calendar, MessageSquare, Trash2 } from 'lucide-react';
 import type { Card, Priority } from '@/types';
 import { CardModal } from './CardModal';
@@ -16,9 +17,18 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   urgent: 'bg-red-900/60 text-red-300 border-red-700',
 };
 
-export function KanbanCard({ card, isDragging }: { card: Card; isDragging?: boolean }) {
-  const { deleteCard } = useApp();
-  const [showModal, setShowModal] = useState(false);
+interface KanbanCardProps {
+  card: Card;
+  isDragging?: boolean;
+  sortable?: boolean;
+}
+
+export function KanbanCard({ card, isDragging, sortable = true }: KanbanCardProps) {
+  if (!sortable) return <KanbanCardContent card={card} isDragging={isDragging} />;
+  return <SortableKanbanCard card={card} isDragging={isDragging} />;
+}
+
+function SortableKanbanCard({ card, isDragging }: Pick<KanbanCardProps, 'card' | 'isDragging'>) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({ id: card.id });
 
   const style = {
@@ -26,7 +36,44 @@ export function KanbanCard({ card, isDragging }: { card: Card; isDragging?: bool
     transition,
   };
 
-  const overdue = card.due_date && isPast(new Date(card.due_date)) && !isToday(new Date(card.due_date));
+  return (
+    <KanbanCardContent
+      card={card}
+      isDragging={isDragging}
+      isSortableDragging={isSortableDragging}
+      setNodeRef={setNodeRef}
+      style={style}
+      attributes={attributes}
+      listeners={listeners}
+    />
+  );
+}
+
+interface KanbanCardContentProps {
+  card: Card;
+  isDragging?: boolean;
+  isSortableDragging?: boolean;
+  setNodeRef?: (element: HTMLElement | null) => void;
+  style?: CSSProperties;
+  attributes?: DraggableAttributes;
+  listeners?: Record<string, unknown>;
+}
+
+function KanbanCardContent({
+  card,
+  isDragging,
+  isSortableDragging = false,
+  setNodeRef,
+  style,
+  attributes,
+  listeners,
+}: KanbanCardContentProps) {
+  const { deleteCard } = useApp();
+  const [showModal, setShowModal] = useState(false);
+  const dueToday = isDueToday(card.due_date);
+  const overdue = isDueOverdue(card.due_date);
+  const dueDateLabel = formatDueDate(card.due_date);
+  const dueDateTooltip = formatDueDatePST(card.due_date);
 
   return (
     <>
@@ -59,9 +106,12 @@ export function KanbanCard({ card, isDragging }: { card: Card; isDragging?: bool
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-600/50">
           <div className="flex items-center gap-2">
             {card.due_date && (
-              <span className={`text-xs flex items-center gap-1 px-1.5 py-0.5 rounded ${overdue ? 'bg-red-900/60 text-red-300' : isToday(new Date(card.due_date)) ? 'bg-yellow-900/60 text-yellow-300' : 'text-gray-400'}`}>
+              <span
+                title={dueDateTooltip}
+                className={`text-xs flex items-center gap-1 px-1.5 py-0.5 rounded ${overdue ? 'bg-red-900/60 text-red-300' : dueToday ? 'bg-yellow-900/60 text-yellow-300' : 'text-gray-400'}`}
+              >
                 <Calendar size={11} />
-                {format(new Date(card.due_date), 'MMM d')}
+                {dueDateLabel}
               </span>
             )}
             {card.comments.length > 0 && (

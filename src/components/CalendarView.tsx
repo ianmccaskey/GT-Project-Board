@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isToday, isPast } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { getDueDateKey } from '@/lib/dates';
 import { CardModal } from './CardModal';
 import type { Card } from '@/types';
 
@@ -24,8 +25,8 @@ export function CalendarView() {
   const cardsByDay = useMemo(() => {
     const map: Record<string, Card[]> = {};
     cards.forEach(card => {
-      if (!card.due_date) return;
-      const key = card.due_date;
+      const key = getDueDateKey(card.due_date);
+      if (!key) return;
       if (!map[key]) map[key] = [];
       map[key].push(card);
     });

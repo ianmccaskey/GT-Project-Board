@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { format, isPast, isToday, startOfDay, startOfWeek, endOfWeek } from 'date-fns';
 import { useApp } from '@/context/AppContext';
+import { formatDueDate, formatDueDatePST, isDueOverdue, isDueThisWeek, isDueToday, parseDueDate } from '@/lib/dates';
 import { CardModal } from './CardModal';
 import { Search, Calendar, ArrowUpDown } from 'lucide-react';
 import type { Card, Priority } from '@/types';
@@ -24,23 +24,16 @@ export function ListView() {
     }
     if (filterPriority) result = result.filter(c => c.priority === filterPriority);
     if (filterTag) result = result.filter(c => c.tags.some(t => t.id === filterTag));
-    if (filterDue === 'overdue') result = result.filter(c => c.due_date && isPast(new Date(c.due_date)) && !isToday(new Date(c.due_date)));
-    if (filterDue === 'today') result = result.filter(c => c.due_date && isToday(new Date(c.due_date)));
-    if (filterDue === 'week') {
-      // "This Week" = current calendar week (Sunday to Saturday), not next 7 days
-      // This aligns with calendar week boundaries for consistent UX
-      const today = startOfDay(new Date());
-      const weekStart = startOfWeek(today, { weekStartsOn: 0 });
-      const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
-      result = result.filter(c => c.due_date && new Date(c.due_date) >= weekStart && new Date(c.due_date) <= weekEnd);
-    }
+    if (filterDue === 'overdue') result = result.filter(c => isDueOverdue(c.due_date));
+    if (filterDue === 'today') result = result.filter(c => isDueToday(c.due_date));
+    if (filterDue === 'week') result = result.filter(c => isDueThisWeek(c.due_date));
 
     return [...result].sort((a, b) => {
       if (sortBy === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
       if (sortBy === 'due_date') {
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
-        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        return (parseDueDate(a.due_date)?.getTime() ?? Infinity) - (parseDueDate(b.due_date)?.getTime() ?? Infinity);
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
@@ -85,7 +78,8 @@ export function ListView() {
           </thead>
           <tbody className="divide-y divide-gray-700/50">
             {filtered.map(card => {
-              const overdue = card.due_date && isPast(new Date(card.due_date)) && !isToday(new Date(card.due_date));
+              const overdue = isDueOverdue(card.due_date);
+              const dueToday = isDueToday(card.due_date);
               return (
                 <tr key={card.id} onClick={() => setSelectedCard(card)} className="hover:bg-gray-700/30 cursor-pointer transition-colors">
                   <td className="px-4 py-3 text-white font-medium">{card.title}</td>
@@ -97,8 +91,8 @@ export function ListView() {
                   </td>
                   <td className="px-4 py-3">
                     {card.due_date ? (
-                      <span className={`flex items-center gap-1 ${overdue ? 'text-red-400' : isToday(new Date(card.due_date)) ? 'text-yellow-400' : 'text-gray-400'}`}>
-                        <Calendar size={12} /> {format(new Date(card.due_date), 'MMM d')}
+                      <span title={formatDueDatePST(card.due_date)} className={`flex items-center gap-1 ${overdue ? 'text-red-400' : dueToday ? 'text-yellow-400' : 'text-gray-400'}`}>
+                        <Calendar size={12} /> {formatDueDate(card.due_date)}
                       </span>
                     ) : <span className="text-gray-600">—</span>}
                   </td>

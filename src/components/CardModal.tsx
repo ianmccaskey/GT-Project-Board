@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { useApp } from '@/context/AppContext';
+import { buildDueDateValue, formatDueDatePST, getDueDateInputValue, getDueTimeInputValue } from '@/lib/dates';
 import { X, Calendar, Tag, MessageSquare, Trash2, Plus, Check } from 'lucide-react';
 import type { Card, Priority } from '@/types';
 
@@ -21,7 +22,8 @@ export function CardModal({ card, onClose }: { card: Card; onClose: () => void }
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [priority, setPriority] = useState<Priority>(card.priority);
-  const [dueDate, setDueDate] = useState(card.due_date ? card.due_date.split('T')[0] : '');
+  const [dueDate, setDueDate] = useState(getDueDateInputValue(card.due_date));
+  const [dueTime, setDueTime] = useState(getDueTimeInputValue(card.due_date));
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
   const [showAddTag, setShowAddTag] = useState(false);
@@ -31,7 +33,8 @@ export function CardModal({ card, onClose }: { card: Card; onClose: () => void }
   const cardTagIds = card.tags.map(t => t.id);
 
   const handleSave = async () => {
-    await updateCard({ ...card, title, description: description || null, priority, due_date: dueDate || null });
+    const nextDueDate = dueDate ? buildDueDateValue(dueDate, dueTime) : null;
+    await updateCard({ ...card, title, description: description || null, priority, due_date: nextDueDate });
     onClose();
   };
 
@@ -62,6 +65,8 @@ export function CardModal({ card, onClose }: { card: Card; onClose: () => void }
     await addComment(card.id, newComment.trim());
     setNewComment('');
   };
+
+  const dueDateTooltip = dueDate ? formatDueDatePST(buildDueDateValue(dueDate, dueTime)) : '';
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -154,12 +159,23 @@ export function CardModal({ card, onClose }: { card: Card; onClose: () => void }
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-300 mb-2">
               <Calendar size={14} /> Due Date
             </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500"
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="date"
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                title={dueDateTooltip || undefined}
+                className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500"
+              />
+              <input
+                type="time"
+                value={dueTime}
+                onChange={e => setDueTime(e.target.value)}
+                title={dueDateTooltip || undefined}
+                className="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            {dueDateTooltip && <p className="mt-1 text-xs text-gray-500">West Coast: {dueDateTooltip}</p>}
           </div>
 
           {/* Comments */}

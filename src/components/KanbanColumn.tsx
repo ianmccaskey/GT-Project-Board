@@ -36,7 +36,7 @@ export function KanbanColumn({ column, cards }: { column: Column; cards: Card[] 
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-64 bg-gray-800/70 rounded-xl flex flex-col max-h-[calc(100vh-140px)] ${isOver ? 'ring-2 ring-indigo-500' : ''}`}
+      className={`flex-shrink-0 w-64 bg-gray-800/70 rounded-xl flex flex-col max-h-[calc(100vh-220px)] ${isOver ? 'ring-2 ring-indigo-500' : ''}`}
     >
       {/* Column Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b border-gray-700">
